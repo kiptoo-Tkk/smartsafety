@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Live Monitoring - Motor Safety Portal{% endblock %}
+{% block page_title %}Live Monitoring{% endblock %}
+{% block live_indicator %}
+<div class="live-indicator"><span class="live-dot" id="live-dot"></span><span id="live-text">Connecting...</span></div>
+{% endblock %}
+{% block content %}
+<div class="card col-span-12 toolbar">
+    <label for="motor-select"><b>Motor</b></label>
+    <select id="motor-select" class="motor-select"></select>
+    <span id="status-chip"></span>
+    <span class="empty" id="meta" style="margin-left:auto">--</span>
+</div>
+
+<div class="card col-span-8">
+    <div class="card-title">Sensors</div>
+    <table class="sens-table">
+        <thead><tr><th>Sensor</th><th>Reading</th><th>Limit</th><th style="width:30%">Level</th><th>State</th></tr></thead>
+        <tbody id="sens-body"><tr><td colspan="5" class="empty">Waiting for data...</td></tr></tbody>
+    </table>
+</div>
+
+<div class="card col-span-4">
+    <div class="card-title">Protection</div>
+    <div class="health-metric-row"><span>Relay</span><span class="val" id="v-relay">--</span></div>
+    <div class="health-metric-row"><span>Sensors in alarm</span><span class="val" id="v-active">--</span></div>
+    <div class="health-metric-row"><span>Shutdown reason</span><span class="val" id="v-reason">--</span></div>
+    <div class="health-metric-row"><span>Auto-shutdown</span><span class="val" id="v-auto">--</span></div>
+    <div class="health-metric-row"><span>Trend prediction</span><span class="val" id="v-pred" style="text-align:right">--</span></div>
+    <div class="health-metric-row"><span>Motor state</span><span class="val" id="v-state" style="text-align:right">--</span></div>
+    <div class="health-metric-row"><span>Outside normal range</span><span class="val" id="v-outside" style="text-align:right">--</span></div>
+    <div class="health-metric-row"><span>Condition index</span><span class="val" id="v-cond" style="text-align:right">--</span></div>
+    <div class="health-metric-row"><span>30-min forecast</span><span class="val" id="v-fc" style="text-align:right">--</span></div>
+    <p class="empty" style="margin-top:8px">The ESP32 trips its own relay when 3 or more sensors are in alarm, even if the Pi is offline.</p>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+const sel = $('motor-select');
+let last = null;
+function row(name, value, limit, lv, label, cls) {
+    cls = cls || (lv ? lv.state : 'ok');
+    const chipCls = cls === 'bad' ? 'danger' : cls === 'warn' ? 'warning' : 'safe';
+    label = label || (cls === 'bad' ? 'Over limit' : cls === 'warn' ? 'Near limit' : 'OK');
+    const bar = lv ? `<div class="bar"><i class="${cls === 'ok' ? '' : cls}" style="width:${lv.pct}%"></i></div>` : '';
+    return `<tr><td>${name}</td><td><b>${value}</b></td><td>${limit}</td><td>${bar}</td><td><span class="chip ${chipCls}">${label}</span></td></tr>`;
+}
+function draw() {
+    if (!last) return;
+    const m = last.motors.find(x => x.id === sel.value);
+    if (!m) { $('sens-body').innerHTML = '<tr><td colspan="5" class="empty">No motors connected yet.</td></tr>'; $('status-chip').innerHTML = ''; return; }
+    $('status-chip').innerHTML = chip(m.status);
+    $('meta').textContent = m.connected ? ('Port ' + m.port + ' | ' + last.timestamp) : 'Link lost - showing last known values';
+    const t = m.t; if (!t) return;
+    const ok = t.dht_valid;
+    let rows = '';
+    rows += row('Temperature', ok ? t.temperature.toFixed(1) + ' &deg;C' : 'ERR', t.temperature_max + ' &deg;C', ok ? level(t.temperature, t.temperature_max, 10) : null, ok ? null : 'No sensor', ok ? null : 'warn');
+    rows += row('Humidity', ok ? t.humidity.toFixed(1) + ' %' : 'ERR', t.humidity_max + ' %', ok ? level(t.humidity, t.humidity_max, 5) : null, ok ? null : 'No sensor', ok ? null : 'warn');
+    rows += row('Smoke (ADC)', t.smoke, t.smoke_max, level(t.smoke, t.smoke_max, 300));
+    rows += row('Sound (ADC)', t.sound, t.sound_max, level(t.sound, t.sound_max, 300));
+    rows += row('Vibration', t.vibration + ' /s', t.vibration_max + ' /s' + (t.vibration_trip ? '' : ' (trip off)'), level(t.vibration, t.vibration_max, 0));
+    rows += row('Motion (PIR)', t.motion ? 'Detected' : 'Clear', t.motion_trip ? 'Counts as alarm' : 'Not counted', null, t.motion ? (t.motion_trip ? 'Alarm' : 'Ignored') : 'Clear', t.motion && t.motion_trip ? 'bad' : 'ok');
+    rows += row('Motor cover', t.cover_closed === false ? 'OPEN' : 'Closed', 'Must be closed to run', null, t.cover_closed === false ? 'Locked out' : 'OK', t.cover_closed === false ? 'bad' : 'ok');
+    $('sens-body').innerHTML = rows;
+    $('v-relay').textContent = t.shutdown ? 'TRIPPED (motor off)' : 'Normal';
+    $('v-active').textContent = t.active_sensors + ' of 3 needed to trip';
+    $('v-reason').textContent = t.shutdown_reason;
+    $('v-auto').textContent = t.auto_shutdown ? 'Enabled' : 'Disabled';
+    $('v-pred').textContent = t.predicted_hazard ? t.prediction_details : 'None';
+    $('v-state').textContent = m.state === 'SETTLING' ? 'SETTLING (forecast paused)' : (m.state === 'STOPPED' ? 'STOPPED' : (m.state || '--'));
+    $('v-outside').textContent = (m.outside_normal && m.outside_normal.length) ? m.outside_normal.map(o => o.label + ' ' + o.value).join(', ') : 'None';
+    $('v-cond').textContent = m.condition ? m.condition.index + ' % (' + m.condition.driver + ')' : '--';
+    $('v-fc').textContent = (m.forecast && m.forecast.length) ? m.forecast.map(f => f.label + ' ~' + fmtEta(f.eta_min) + ' (' + f.basis + ')').join(', ') : 'No trend toward a limit';
+}
+function render(f) { last = f; updateBadges(f); fillMotorSelect(sel, f.motors); draw(); }
+sel.addEventListener('change', () => { localStorage.setItem('portal_motor', sel.value); draw(); });
+fetchJSON('/api/fleet').then(render).catch(() => {});
+const es = new EventSource('/stream');
+es.onopen = () => setLiveStatus(true);
+es.onmessage = e => { setLiveStatus(true); render(JSON.parse(e.data)); };
+es.onerror = () => setLiveStatus(false);
+window.addEventListener('beforeunload', () => es.close());
+</script>
+{% endblock %}

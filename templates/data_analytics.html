@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Data & Analytics - Motor Safety Portal{% endblock %}
+{% block page_title %}Data &amp; Analytics{% endblock %}
+{% block extra_head %}
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
+{% endblock %}
+{% block content %}
+<div class="card col-span-12 toolbar">
+    <label for="motor-select"><b>Motor</b></label>
+    <select id="motor-select" class="motor-select"></select>
+    <label for="range-select"><b>Range</b></label>
+    <select id="range-select" class="motor-select">
+        <option value="60">Last hour</option><option value="360">Last 6 hours</option><option value="1440">Last 24 hours</option><option value="10080">Last 7 days</option><option value="43200">Last 30 days</option>
+    </select>
+    <a class="export-btn" id="export-link" href="#" download style="margin-left:auto">Export log (CSV)</a>
+</div>
+<div class="card col-span-12 chart-card">
+    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;"><span>Overall Motor Condition: all sensors, % toward limit</span><span id="cond-now" class="chip offline">--</span></div>
+    <div class="chart-container" style="height:320px"><canvas id="chCond"></canvas></div>
+    <p class="empty" style="margin-top:6px">Thin lines: each sensor scaled from its normal value (0 %) to its limit (100 %). Thick line: total condition = the worst sensor at that moment. The charts below are unchanged.</p>
+</div>
+<div class="card col-span-6 chart-card"><div class="card-title">Temperature &amp; Humidity</div><div class="chart-container"><canvas id="chTH"></canvas></div></div>
+<div class="card col-span-6 chart-card"><div class="card-title">Vibration activity (transitions/s)</div><div class="chart-container"><canvas id="chVib"></canvas></div></div>
+<div class="card col-span-12 chart-card"><div class="card-title">Smoke &amp; Sound (ADC)</div><div class="chart-container"><canvas id="chSS"></canvas></div></div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+const pink = '#FF3377', cyan = '#00B4D8', yellow = '#FFC300', blue = '#0077B6';
+const base = {responsive: true, maintainAspectRatio: false, animation: false, plugins: {legend: {position: 'bottom'}}, scales: {x: {ticks: {maxTicksLimit: 8, autoSkip: true}}}};
+const ds = (label, color, axis, extra) => Object.assign({label: label, data: [], borderColor: color, yAxisID: axis || 'y', tension: 0.3, pointRadius: 0, borderWidth: 2, fill: false}, extra || {});
+const chTH = new Chart($('chTH'), {type: 'line', data: {labels: [], datasets: [ds('Temperature (°C)', pink, 'y'), ds('Humidity (%)', cyan, 'y1')]},
+    options: Object.assign({}, base, {scales: {x: base.scales.x, y: {position: 'left', title: {display: true, text: '°C'}}, y1: {position: 'right', min: 0, max: 100, grid: {drawOnChartArea: false}, title: {display: true, text: '%'}}}})});
+const chVib = new Chart($('chVib'), {type: 'line', data: {labels: [], datasets: [ds('Vibration rate', blue, 'y', {fill: true, backgroundColor: 'rgba(0,119,182,.15)'}), ds('Limit', pink, 'y', {borderDash: [6, 4], borderWidth: 1})]},
+    options: Object.assign({}, base, {scales: {x: base.scales.x, y: {min: 0, title: {display: true, text: 'per second'}}}})});
+const chSS = new Chart($('chSS'), {type: 'line', data: {labels: [], datasets: [ds('Smoke', yellow), ds('Sound', cyan), ds('Smoke limit', yellow, 'y', {borderDash: [6, 4], borderWidth: 1}), ds('Sound limit', cyan, 'y', {borderDash: [6, 4], borderWidth: 1})]},
+    options: Object.assign({}, base, {scales: {x: base.scales.x, y: {min: 0, max: 4095}}})});
+
+const chCond = makeCondChart($('chCond'));
+function loadCond() {
+    fetchJSON('/api/motor/' + encodeURIComponent(sel.value) + '/condition?minutes=' + rng.value).then(d => drawCond(chCond, d, $('cond-now'))).catch(() => {});
+}
+const sel = $('motor-select'), rng = $('range-select');
+function load() {
+    if (!sel.value) return;
+    loadCond();
+    $('export-link').href = '/api/export_csv?motor=' + encodeURIComponent(sel.value);
+    fetchJSON('/api/motor/' + encodeURIComponent(sel.value) + '/history?minutes=' + rng.value).then(h => {
+        const fill = n => h.labels.map(() => n);
+        chTH.data.labels = h.labels; chTH.data.datasets[0].data = h.temperature; chTH.data.datasets[1].data = h.humidity; chTH.update('none');
+        chVib.data.labels = h.labels; chVib.data.datasets[0].data = h.vibration; chVib.data.datasets[1].data = fill(h.limits.vibration_max); chVib.update('none');
+        chSS.data.labels = h.labels; chSS.data.datasets[0].data = h.smoke; chSS.data.datasets[1].data = h.sound;
+        chSS.data.datasets[2].data = fill(h.limits.smoke_max); chSS.data.datasets[3].data = fill(h.limits.sound_max); chSS.update('none');
+    }).catch(() => {});
+}
+sel.addEventListener('change', () => { localStorage.setItem('portal_motor', sel.value); load(); });
+rng.addEventListener('change', load);
+fetchJSON('/api/fleet').then(f => { updateBadges(f); fillMotorSelect(sel, f.motors); load(); });
+setInterval(load, CHART_MS);
+</script>
+{% endblock %}

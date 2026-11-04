@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Alerts - Motor Safety Portal{% endblock %}
+{% block page_title %}Alerts &amp; Notifications{% endblock %}
+{% block content %}
+<div class="card col-span-4">
+    <div class="card-title">Summary</div>
+    <div class="health-metric-row"><span>Active alerts</span><span class="val" id="s-alerts">0</span></div>
+    <div class="health-metric-row"><span>Motors in danger / shut down</span><span class="val" id="s-danger">0</span></div>
+    <div class="health-metric-row"><span>Motors with warnings</span><span class="val" id="s-warning">0</span></div>
+    <div class="health-metric-row"><span>Motors offline</span><span class="val" id="s-offline">0</span></div>
+</div>
+<div class="card col-span-8">
+    <div class="card-title">Active Alerts</div>
+    <ul class="alert-list" id="alert-list"><li class="empty">Loading...</li></ul>
+</div>
+<div class="card col-span-12">
+    <div class="card-title">Notification History</div>
+    <ul class="log-list" id="log-list"><li class="empty">Waiting for events...</li></ul>
+    <p class="empty" style="margin-top:8px">Times come from the Raspberry Pi clock. Without internet, set it manually or fit an RTC module.</p>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+function render(f) {
+    const s = f.summary;
+    $('s-alerts').textContent = s.alerts; $('s-danger').textContent = s.danger;
+    $('s-warning').textContent = s.warning; $('s-offline').textContent = s.offline;
+    $('alert-list').innerHTML = f.alerts.length
+        ? f.alerts.map(a => `<li>${chip(a.level === 'danger' ? 'DANGER' : 'WARNING')}<span><b>${esc(a.name)}</b> - ${esc(a.message)}</span></li>`).join('')
+        : '<li class="empty">No active alerts. All connected motors are within limits.</li>';
+    $('log-list').innerHTML = f.notifications.length
+        ? f.notifications.slice().reverse().map(n => `<li><span class="t">${esc(n.time)}</span>${chip(n.level === 'danger' ? 'DANGER' : n.level === 'warning' ? 'WARNING' : 'INFO')}<span>${esc(n.message)}</span></li>`).join('')
+        : '<li class="empty">No events yet.</li>';
+}
+pollFleet(render);
+</script>
+{% endblock %}

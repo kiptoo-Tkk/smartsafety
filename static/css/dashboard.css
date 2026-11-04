@@ -1,0 +1,265 @@
+:root {
+    --bg-main: #E5E8EB;
+    --bg-card: #FFFFFF;
+    --text-dark: #1A1A1A;
+    --text-muted: #666666;
+    --color-pink: #FF3377;
+    --color-cyan: #00B4D8;
+    --color-yellow: #FFC300;
+    --color-blue: #0077B6;
+    --color-brand: #2E8B57;
+    --border-radius: 20px;
+    --sidebar-width: 240px;
+}
+
+body.theme-dark {
+    --bg-main: #14181B;
+    --bg-card: #1F262B;
+    --text-dark: #E8EAED;
+    --text-muted: #9AA5AC;
+}
+body.theme-dark .sidebar { background-color: #0D1310; }
+body.theme-dark .ai-camera-box, body.theme-dark .mini-camera-box { border-color: #333; }
+body.theme-dark .calibration-row input, body.theme-dark select {
+    background-color: #2A3238; color: #E8EAED; border-color: #444;
+}
+body.theme-dark .sensor-health-list li, body.theme-dark .notifications-list li,
+body.theme-dark .health-metric-row, body.theme-dark .calibration-row {
+    border-bottom-color: #333;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
+body { background-color: var(--bg-main); color: var(--text-dark); display: flex; min-height: 100vh; }
+
+/* ---------- Sidebar ---------- */
+.sidebar {
+    width: var(--sidebar-width);
+    background-color: #1A2E22;
+    color: #fff;
+    flex-shrink: 0;
+    padding: 20px 0;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    overflow-y: auto;
+    transition: transform 0.25s ease;
+    z-index: 1000;
+}
+.sidebar-brand {
+    font-size: 16px;
+    font-weight: 800;
+    padding: 0 20px 20px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 12px;
+    line-height: 1.3;
+}
+.sidebar-brand span { color: var(--color-brand); }
+.sidebar-nav a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: rgba(255,255,255,0.75);
+    text-decoration: none;
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    border-left: 4px solid transparent;
+    transition: background-color 0.15s ease;
+}
+.sidebar-nav a:hover { background-color: rgba(255,255,255,0.06); color: #fff; }
+.sidebar-nav a.active {
+    background-color: rgba(46,139,87,0.25);
+    border-left-color: var(--color-brand);
+    color: #fff;
+    font-weight: 700;
+}
+.sidebar-nav i { width: 18px; text-align: center; }
+
+.sidebar-toggle {
+    display: none;
+    position: fixed;
+    top: 14px; left: 14px;
+    z-index: 1100;
+    background: var(--color-brand);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    width: 40px; height: 40px;
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.main-content {
+    margin-left: var(--sidebar-width);
+    flex: 1;
+    padding: 24px;
+    min-width: 0;
+}
+
+.page-title {
+    font-size: 22px;
+    font-weight: 800;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 3px solid var(--color-brand);
+    display: inline-block;
+}
+
+/* ---------- Cards / grid (same visual language as before) ---------- */
+.dashboard-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 20px; max-width: 1600px; }
+.card { background-color: var(--bg-card); border-radius: var(--border-radius); padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column; justify-content: space-between; }
+.kpi-card { grid-column: span 3; flex-direction: row; align-items: center; justify-content: flex-start; gap: 15px; height: 120px; }
+.icon-circle { width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #FFF; }
+.bg-pink { background-color: var(--color-pink); } .bg-cyan { background-color: var(--color-cyan); } .bg-yellow { background-color: var(--color-yellow); } .bg-blue { background-color: var(--color-blue); }
+.kpi-data h3 { font-size: 14px; color: var(--text-muted); font-weight: 500; }
+.kpi-data p { font-size: 28px; font-weight: bold; }
+.col-span-3 { grid-column: span 3; } .col-span-4 { grid-column: span 4; } .col-span-6 { grid-column: span 6; } .col-span-8 { grid-column: span 8; } .col-span-12 { grid-column: span 12; }
+.card-title { font-size: 16px; font-weight: bold; margin-bottom: 12px; text-align: left; }
+.chart-container { position: relative; width: 100%; height: 100%; min-height: 220px; }
+.chart-card { min-height: 300px; }
+
+.ai-camera-box { background-color: #000; border-radius: 12px; width: 100%; aspect-ratio: 4/3; overflow: hidden; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; border: 1px solid #DDD; }
+.ai-camera-box img { width: 100%; height: 100%; object-fit: contain; background-color: #000; }
+.ai-status-text { font-size: 13px; font-weight: bold; margin-bottom: 4px; }
+.ai-advice-text { font-size: 12px; color: var(--text-muted); }
+
+.live-indicator { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); position: fixed; top: 14px; right: 20px; background: var(--bg-card); padding: 6px 12px; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); z-index: 999; }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background-color: #999; }
+.live-dot.connected { background-color: #2ecc71; } .live-dot.disconnected { background-color: var(--color-pink); }
+
+.status-indicator-row { display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: bold; }
+.status-dot { width: 18px; height: 18px; border-radius: 50%; background-color: #999; box-shadow: 0 0 0 5px rgba(0,0,0,0.03); flex-shrink: 0; }
+.status-dot.status-on { background-color: #2ecc71; } .status-dot.status-off { background-color: #e74c3c; }
+
+.sensor-health-list, .notifications-list, .detection-log-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; }
+.sensor-health-list { max-height: 260px; } .notifications-list { max-height: 320px; } .detection-log-list { max-height: 320px; }
+.sensor-health-list li, .notifications-list li { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 8px 2px; border-bottom: 1px solid #F0F0F0; }
+.sensor-health-list li:last-child, .notifications-list li:last-child { border-bottom: none; }
+.health-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.health-dot.healthy { background-color: #2ecc71; } .health-dot.fault { background-color: #e74c3c; } .health-dot.warning { background-color: var(--color-yellow); }
+.notifications-list .notif-time { color: var(--text-muted); margin-right: 6px; font-weight: 600; }
+.advice-text { font-size: 14px; line-height: 1.5; color: var(--text-dark); }
+
+.detection-log-list li { display: flex; align-items: center; gap: 10px; padding: 8px 2px; border-bottom: 1px solid #F0F0F0; }
+.detection-log-list li:last-child { border-bottom: none; }
+.detection-log-thumb { width: 50px; height: 50px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background-color: #eee; }
+.detection-log-info { font-size: 13px; color: var(--text-dark); }
+.detection-log-info .dl-class { font-weight: 700; }
+.detection-log-info .dl-meta { font-size: 11px; color: var(--text-muted); }
+
+.manual-controls-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.ctrl-btn { flex: 1; min-width: 110px; padding: 10px 14px; border: none; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; color: #fff; background-color: var(--text-muted); transition: opacity 0.15s ease; }
+.ctrl-btn:hover { opacity: 0.85; } .ctrl-btn.active-on { background-color: #2ecc71; } .ctrl-btn.active-off { background-color: #e74c3c; } .ctrl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.confidence-row { margin-top: 10px; }
+.confidence-row label { font-size: 12px; color: var(--text-muted); display: flex; justify-content: space-between; }
+.confidence-row input[type="range"] { width: 100%; accent-color: var(--color-brand); }
+
+.export-btn { margin-top: 10px; display: inline-block; padding: 10px 16px; border-radius: 10px; background-color: var(--color-brand); color: #fff; text-decoration: none; font-size: 13px; font-weight: 700; text-align: center; }
+.export-btn:hover { opacity: 0.9; }
+
+.summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.summary-stat { text-align: center; }
+.summary-stat .stat-value { font-size: 26px; font-weight: 800; color: var(--color-brand); }
+.summary-stat .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; }
+
+.health-metric-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #F0F0F0; font-size: 14px; }
+.health-metric-row:last-child { border-bottom: none; }
+.health-metric-row .val { font-weight: 700; }
+
+.home-status-banner { grid-column: span 12; display: flex; align-items: center; gap: 16px; padding: 18px 22px; }
+.home-status-banner .banner-dot { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; }
+.home-status-banner .banner-text { font-size: 15px; font-weight: 700; }
+.home-status-banner .banner-sub { font-size: 12px; color: var(--text-muted); font-weight: 400; }
+
+.quick-links { display: flex; gap: 12px; flex-wrap: wrap; }
+.quick-links a { flex: 1; min-width: 140px; text-align: center; padding: 14px; border-radius: 14px; background-color: var(--bg-card); text-decoration: none; color: var(--text-dark); font-weight: 700; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); border-top: 3px solid var(--color-brand); }
+.quick-links a:hover { opacity: 0.85; }
+
+@media (max-width: 1024px) {
+    .kpi-card { grid-column: span 6; }
+    .col-span-3, .col-span-4, .col-span-6, .col-span-8 { grid-column: span 12; }
+}
+@media (max-width: 900px) {
+    .sidebar { transform: translateX(-100%); }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar-toggle { display: block; }
+    .main-content { margin-left: 0; padding: 70px 16px 16px 16px; }
+}
+@media (max-width: 640px) {
+    .kpi-card { grid-column: span 12; height: auto; padding: 16px; }
+    .icon-circle { width: 45px; height: 45px; font-size: 20px; }
+    .kpi-data p { font-size: 22px; }
+    .dashboard-grid { gap: 14px; }
+}
+
+
+/* ---------- Nav badges (alerts you can see from any page) ---------- */
+.sidebar-nav a { position: relative; }
+.nav-badge {
+    display: none;
+    margin-left: auto;
+    background-color: var(--color-pink);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    text-align: center;
+    line-height: 18px;
+    padding: 0 5px;
+}
+
+/* ---------- System title banner (Home page) ---------- */
+.system-title-banner {
+    grid-column: span 12;
+    text-align: center;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    padding: 16px 20px;
+    border-bottom: 4px solid var(--color-brand);
+}
+
+/* ---------- Small camera preview (Home page only) ---------- */
+.mini-camera-box {
+    background-color: #000;
+    border-radius: 12px;
+    width: 90px;
+    height: 90px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #DDD;
+    flex-shrink: 0;
+}
+.mini-camera-box img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ---------- Compact status-KPI cards (replaces oversized empty status cards) ---------- */
+.status-kpi-card {
+    grid-column: span 3;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 15px;
+    height: 120px;
+}
+.status-kpi-card .kpi-data p { font-size: 20px; font-weight: 800; }
+.status-kpi-card .kpi-data p.state-on { color: #2ecc71; }
+.status-kpi-card .kpi-data p.state-off { color: #e74c3c; }
+
+/* ---------- Calibration form (Settings page) ---------- */
+.calibration-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #F0F0F0; gap: 12px; }
+.calibration-row:last-of-type { border-bottom: none; }
+.calibration-row label { font-size: 13px; color: var(--text-muted); flex: 1; }
+.calibration-row input { width: 90px; padding: 6px 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 13px; }
+.save-btn { margin-top: 12px; padding: 10px 18px; border: none; border-radius: 10px; background-color: var(--color-brand); color: #fff; font-weight: 700; font-size: 13px; cursor: pointer; }
+.save-btn:hover { opacity: 0.9; }
+.calibration-status { font-size: 12px; color: var(--text-muted); margin-top: 8px; min-height: 16px; }
+
+
+/* ---------- Nested status grid (fills gap beside tall cards, e.g. camera) ---------- */
+.live-status-grid { grid-column: span 6; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 16px; }
+.status-kpi-card.mini { height: 100%; }

@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+app.log
+app.py.*
+*.bak
+backup_*/
+apply_*.py
+install_smartsafety*.sh
+data/auth.json
+data/secret.key

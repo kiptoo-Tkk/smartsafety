@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Motor Control - Motor Safety Portal{% endblock %}
+{% block page_title %}Motor Control{% endblock %}
+{% block content %}
+<div class="card col-span-12 toolbar">
+    <label for="motor-select"><b>Motor</b></label>
+    <select id="motor-select" class="motor-select"></select>
+    <span id="status-chip"></span>
+    <span class="empty" id="conn-note" style="margin-left:auto"></span>
+</div>
+
+<div class="card col-span-4">
+    <div class="card-title">Manual Shutdown</div>
+    <p class="ai-advice-text">Opens this motor's relay and latches it. Resume works only when fewer than 3 sensors are in alarm.</p>
+    <div class="btn-row">
+        <button class="save-btn btn-red" id="btn-shutdown">Shut down motor</button>
+        <button class="save-btn" id="btn-resume">Resume motor</button>
+    </div>
+    <div class="calibration-status" id="cmd-status"></div>
+</div>
+
+<div class="card col-span-8">
+    <div class="card-title">Limits &amp; Protection (this motor only)</div>
+    <div class="ctrl-grid">
+        <div class="calibration-row"><label>Temperature limit (&deg;C)</label><input type="number" id="c-temperature_max" min="0" max="80" step="1"></div>
+        <div class="calibration-row"><label>Humidity limit (%)</label><input type="number" id="c-humidity_max" min="0" max="100" step="1"></div>
+        <div class="calibration-row"><label>Smoke limit (ADC 0-4095)</label><input type="number" id="c-smoke_max" min="0" max="4095" step="50"></div>
+        <div class="calibration-row"><label>Sound limit (ADC 0-4095)</label><input type="number" id="c-sound_max" min="0" max="4095" step="50"></div>
+        <div class="calibration-row"><label>Vibration limit (transitions/s)</label><input type="number" id="c-vibration_max" min="1" max="1000" step="1"></div>
+    </div>
+    <div class="health-metric-row"><span>Auto-shutdown at 3 alarms</span><input type="checkbox" id="c-auto_shutdown" style="width:auto"></div>
+    <div class="health-metric-row"><span>Vibration counts as alarm</span><input type="checkbox" id="c-vibration_trip" style="width:auto"></div>
+    <div class="health-metric-row"><span>Motion (PIR) counts as alarm</span><input type="checkbox" id="c-motion_trip" style="width:auto"></div>
+    <div class="btn-row" style="margin-top:12px">
+        <button class="save-btn" id="btn-apply">Apply to motor</button>
+        <button class="save-btn" id="btn-reload" style="background:#555">Reload from motor</button>
+    </div>
+    <div class="calibration-status" id="cfg-status"></div>
+    <p class="empty" style="margin-top:8px">Limits are stored on the ESP32 itself, so changes made with its local buttons show up here after "Reload from motor".</p>
+</div>
+<div class="card col-span-12">
+    <div class="card-title">Normal Operating Conditions (this motor)</div>
+    <p class="ai-advice-text">The usual healthy range of each sensor while the motor runs. Stored on the Pi. Once saved, the Pi warns when a reading stays outside its range, and uses the range as the reference for the condition chart.</p>
+    <table class="sens-table"><thead><tr><th>Sensor</th><th>Normal from</th><th>to</th><th>Now</th></tr></thead><tbody id="np-body"></tbody></table>
+    <div class="btn-row" style="margin-top:10px">
+        <button class="save-btn" id="np-learn">Learn from healthy data</button>
+        <button class="save-btn" id="np-save">Save normal conditions</button>
+        <button class="save-btn" id="np-reset" style="background:#555">Suggested values</button>
+    </div>
+    <div class="calibration-status" id="np-msg"></div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+const sel = $('motor-select');
+const NUM = ['temperature_max', 'humidity_max', 'smoke_max', 'sound_max', 'vibration_max'];
+const BOOL = ['auto_shutdown', 'vibration_trip', 'motion_trip'];
+let last = null, loadedFor = null;
+
+function cur() { return last && last.motors.find(x => x.id === sel.value); }
+function loadInputs() {
+    const m = cur(); if (!m || !m.t) return;
+    NUM.forEach(k => $('c-' + k).value = m.t[k]);
+    BOOL.forEach(k => $('c-' + k).checked = !!m.t[k]);
+    loadedFor = m.id;
+    npLoad();
+}
+function render(f) {
+    last = f; fillMotorSelect(sel, f.motors);
+    const m = cur();
+    $('status-chip').innerHTML = m ? chip(m.status) : '';
+    if (m && m.t) NP.forEach(s => { const e = $('np-now-' + s[0]); if (e) e.textContent = m.t[s[0]]; });
+    $('conn-note').textContent = m && !m.connected ? 'Motor offline - commands cannot be sent' : '';
+    ['btn-shutdown', 'btn-resume', 'btn-apply'].forEach(id => $(id).disabled = !m || !m.connected);
+    if (m && m.t && loadedFor !== m.id) loadInputs();     // fill once per motor, never overwrite while editing
+}
+function command(cmd) {
+    const m = cur(); if (!m) return;
+    if (!confirm((cmd === 'shutdown' ? 'Shut down ' : 'Resume ') + m.name + '?')) return;
+    postJSON('/api/motor/' + encodeURIComponent(m.id) + '/command', {cmd: cmd})
+        .then(r => $('cmd-status').textContent = r.sent ? (cmd === 'shutdown' ? 'Shutdown sent.' : 'Resume sent - check status.') : (r.error || 'Failed.'));
+}
+$('btn-shutdown').onclick = () => command('shutdown');
+$('btn-resume').onclick = () => command('resume');
+$('btn-reload').onclick = () => { loadInputs(); $('cfg-status').textContent = 'Reloaded from motor.'; };
+$('btn-apply').onclick = () => {
+    const m = cur(); if (!m) return;
+    const body = {};
+    NUM.forEach(k => body[k] = $('c-' + k).value);
+    BOOL.forEach(k => body[k] = $('c-' + k).checked);
+    postJSON('/api/motor/' + encodeURIComponent(m.id) + '/config', body)
+        .then(r => $('cfg-status').textContent = r.sent ? 'Applied and saved on the ESP32.' : (r.error || 'Failed.'));
+};
+// ---- normal operating conditions ----
+const NP = [['temperature', 'Temperature', '°C'], ['humidity', 'Humidity', '%'], ['smoke', 'Smoke', 'ADC'], ['sound', 'Sound', 'ADC'], ['vibration', 'Vibration', '/s']];
+let npDefaults = null;
+function npRender(p) {
+    $('np-body').innerHTML = NP.map(s => '<tr><td>' + s[1] + ' (' + s[2] + ')</td><td><input type="number" step="any" id="np-lo-' + s[0] + '" value="' + p[s[0]][0] + '" style="width:90px"></td><td><input type="number" step="any" id="np-hi-' + s[0] + '" value="' + p[s[0]][1] + '" style="width:90px"></td><td id="np-now-' + s[0] + '">-</td></tr>').join('');
+}
+function npRead() { const p = {}; NP.forEach(s => p[s[0]] = [$('np-lo-' + s[0]).value, $('np-hi-' + s[0]).value]); return p; }
+function npLoad() {
+    const m = cur(); if (!m) return;
+    fetchJSON('/api/motor/' + encodeURIComponent(m.id) + '/profile').then(r => {
+        npDefaults = r.defaults; npRender(r.profile);
+        $('np-msg').textContent = r.saved ? 'Saved normal conditions loaded.' : 'Nothing saved yet: these are suggested starting values. Edit them or learn from data, then save.';
+    }).catch(() => {});
+}
+$('np-save').onclick = () => { const m = cur(); if (!m) return; postJSON('/api/motor/' + encodeURIComponent(m.id) + '/profile', npRead()).then(r => $('np-msg').textContent = r.ok ? 'Saved on the Pi.' : (r.error || 'Failed.')); };
+$('np-learn').onclick = () => { const m = cur(); if (!m) return; $('np-msg').textContent = 'Learning...'; postJSON('/api/motor/' + encodeURIComponent(m.id) + '/profile/learn', {}).then(r => { if (r.ok) { npRender(r.profile); $('np-msg').textContent = 'Learned from ' + r.minutes + ' minutes of healthy running data. Check the values, then press Save.'; } else $('np-msg').textContent = r.error || 'Failed.'; }); };
+$('np-reset').onclick = () => { if (npDefaults) { npRender(npDefaults); $('np-msg').textContent = 'Suggested values restored (not saved yet).'; } };
+sel.addEventListener('change', () => { localStorage.setItem('portal_motor', sel.value); loadedFor = null; render(last); });
+pollFleet(render);
+</script>
+{% endblock %}

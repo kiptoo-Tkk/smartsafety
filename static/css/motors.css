@@ -1,0 +1,33 @@
+.chip{display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.chip.safe,.chip.info{background:rgba(46,204,113,.16);color:#27ae60}
+.chip.warning{background:rgba(243,156,18,.16);color:#d68910}
+.chip.danger,.chip.shutdown{background:rgba(231,76,60,.14);color:#e74c3c}
+.chip.offline{background:rgba(128,128,128,.2);color:var(--text-muted)}
+.motor-card{gap:8px;border:2px solid transparent;cursor:pointer;text-decoration:none;color:inherit}
+.motor-card.warning{border-color:#f39c12}
+.motor-card.danger,.motor-card.shutdown{border-color:#e74c3c}
+.motor-card.offline{opacity:.6}
+.mc-head{display:flex;justify-content:space-between;align-items:center}
+.mc-name{font-weight:800;font-size:16px}
+.mc-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;font-size:13px}
+.mc-grid span{display:flex;justify-content:space-between}
+.mc-note{font-size:12px;color:var(--text-muted);min-height:16px}
+.fleet-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.fleet-bar .headline{font-weight:700;font-size:15px}
+.fleet-bar .sub{margin-left:auto;font-size:12px;color:var(--text-muted)}
+.dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.bar{height:8px;border-radius:5px;background:rgba(128,128,128,.22);overflow:hidden;min-width:90px}
+.bar>i{display:block;height:100%;background:#2ecc71;transition:width .5s}
+.bar>i.warn{background:#f39c12}.bar>i.bad{background:#e74c3c}
+.motor-select{padding:6px 10px;border-radius:8px;border:1px solid #ddd;font-size:14px}
+.toolbar{flex-direction:row;align-items:center;gap:12px;flex-wrap:wrap}
+.sens-table{width:100%;border-collapse:collapse;font-size:14px}
+.sens-table th,.sens-table td{padding:8px 6px;text-align:left;border-bottom:1px solid rgba(128,128,128,.2)}
+.sens-table th{font-size:12px;color:var(--text-muted);font-weight:600}
+.alert-list,.log-list{list-style:none;padding:0;margin:0;font-size:14px}
+.alert-list li,.log-list li{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(128,128,128,.2)}
+.log-list .t{font-size:11px;color:var(--text-muted);white-space:nowrap}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap}
+.btn-red{background:#e74c3c!important;color:#fff!important}
+.empty{color:var(--text-muted);font-size:13px}
+.ctrl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:4px 24px}

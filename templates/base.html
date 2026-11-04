@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Motor Safety Portal{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='fontawesome/css/all.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/motors.css') }}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <button class="sidebar-toggle" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-brand">MOTOR SAFETY<br><span>Portal</span></div>
+        <div class="sidebar-nav">
+            <a href="{{ url_for('home') }}" class="{{ 'active' if active_page == 'home' else '' }}"><i class="fa-solid fa-house"></i> Home</a>
+            <a href="{{ url_for('live_monitoring') }}" class="{{ 'active' if active_page == 'live' else '' }}"><i class="fa-solid fa-satellite-dish"></i> Live Monitoring</a>
+            <a href="{{ url_for('control') }}" class="{{ 'active' if active_page == 'control' else '' }}"><i class="fa-solid fa-sliders"></i> Motor Control</a>
+            <a href="{{ url_for('alerts') }}" class="{{ 'active' if active_page == 'alerts' else '' }}"><i class="fa-solid fa-triangle-exclamation"></i> Alerts <span class="nav-badge" id="badge-alerts"></span></a>
+            <a href="{{ url_for('data_analytics') }}" class="{{ 'active' if active_page == 'data' else '' }}"><i class="fa-solid fa-chart-line"></i> Data &amp; Analytics</a>
+            <a href="{{ url_for('system_health') }}" class="{{ 'active' if active_page == 'health' else '' }}"><i class="fa-solid fa-heart-pulse"></i> System Health</a>
+            <a href="{{ url_for('settings') }}" class="{{ 'active' if active_page == 'settings' else '' }}"><i class="fa-solid fa-gear"></i> Settings</a>
+            <a href="/logout"><i class="fa-solid fa-right-from-bracket"></i> Log out</a>
+        </div>
+    </nav>
+    <div class="main-content">
+        {% block live_indicator %}{% endblock %}
+        <h1 class="page-title">{% block page_title %}{% endblock %}</h1>
+        <div class="dashboard-grid">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/common.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/motors.js') }}"></script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

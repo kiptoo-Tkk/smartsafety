@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Home - Motor Safety Portal{% endblock %}
+{% block page_title %}Motor Fleet Overview{% endblock %}
+{% block extra_head %}<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>{% endblock %}
+{% block content %}
+<div class="card col-span-12 fleet-bar">
+    <span class="dot" id="fleet-dot" style="background:#999"></span>
+    <span class="headline" id="fleet-headline">Loading...</span>
+    <span class="sub" id="fleet-sub">--</span>
+</div>
+<div id="motor-grid" style="display:contents"></div>
+<div class="card col-span-12" id="empty-card" style="display:none">
+    <div class="card-title">No motors connected</div>
+    <p class="empty">Plug each ESP32 into the Raspberry Pi's USB hub. A motor appears here a few seconds after its first reading.</p>
+</div>
+<div class="card col-span-8 chart-card" id="cond-card">
+    <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;"><span>Overall Motor Condition</span><span><select id="cond-motor" class="motor-select"></select> <span id="cond-now" class="chip offline">--</span></span></div>
+    <div class="chart-container" style="height:260px"><canvas id="chCond"></canvas></div>
+    <p class="empty" style="margin-top:6px">Last hour. Each sensor runs from its normal value (0 %) to its limit (100 %); the thick line is the worst sensor.</p>
+</div>
+<div class="card col-span-4" id="qr-card">
+    <div class="card-title">Open on your phone</div>
+    <select id="qr-url" class="motor-select" style="width:100%"></select>
+    <img id="qr-img" alt="QR code" style="width:180px;height:180px;align-self:center;background:#fff;border-radius:8px;margin-top:8px">
+    <p class="empty" style="margin-top:6px">Scan with your phone camera. The phone must be on the same network as the Pi.</p>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+function card(m) {
+    const t = m.t, st = m.status.toLowerCase();
+    const body = t ? `
+        <div class="mc-grid">
+            <span>Temp <b>${t.dht_valid ? t.temperature.toFixed(1) + ' &deg;C' : 'ERR'}</b></span>
+            <span>Humidity <b>${t.dht_valid ? t.humidity.toFixed(0) + '%' : 'ERR'}</b></span>
+            <span>Vibration <b>${t.vibration}/${t.vibration_max} /s</b></span>
+            <span>Relay <b>${t.shutdown ? 'TRIPPED' : 'Normal'}</b></span>
+            <span>Smoke <b>${t.smoke}</b></span>
+            <span>Sound <b>${t.sound}</b></span>
+        </div>
+        ${m.condition ? '<div class="mc-note" style="margin-top:2px">Condition ' + m.condition.index + '% &middot; ' + esc(m.condition.driver) + '</div><div class="bar"><i class="' + (m.condition.index >= 80 ? 'bad' : m.condition.index >= 50 ? 'warn' : '') + '" style="width:' + m.condition.index + '%"></i></div>' : ''}
+        <div class="mc-note">${m.breaches.length ? 'Over limit: ' + esc(m.breaches.join(', ')) : (t.predicted_hazard ? esc(t.prediction_details) : (m.forecast && m.forecast.length ? 'Forecast: ' + esc(m.forecast[0].label) + ' may hit its limit in ~' + fmtEta(m.forecast[0].eta_min) : '&nbsp;'))}</div>`
+        : '<div class="mc-note">Waiting for first reading...</div>';
+    return `<a class="card motor-card col-span-4 ${esc(st)}" href="/live?motor=${encodeURIComponent(m.id)}">
+        <div class="mc-head"><span class="mc-name">${esc(m.name)}</span>${chip(m.status)}</div>${body}
+        <div class="mc-note">${m.connected ? 'Port ' + esc(m.port) : (m.last_seen_s != null ? 'Last seen ' + Math.round(m.last_seen_s) + ' s ago' : '')}</div></a>`;
+}
+function render(f) {
+    const s = f.summary;
+    fillMotorSelect(condSel, f.motors); if (!window._cond0) { window._cond0 = 1; loadCond(); }
+    $('empty-card').style.display = s.total ? 'none' : '';
+    $('motor-grid').innerHTML = f.motors.map(card).join('');
+    const bad = s.danger + s.offline;
+    $('fleet-dot').style.background = !s.total ? '#999' : (bad ? '#e74c3c' : (s.warning ? '#f39c12' : '#2ecc71'));
+    $('fleet-headline').textContent = !s.total ? 'No motors yet'
+        : (bad || s.warning ? [s.danger && s.danger + ' in danger', s.offline && s.offline + ' offline', s.warning && s.warning + ' warning'].filter(Boolean).join(' · ')
+                            : 'All ' + s.total + ' motors normal');
+    $('fleet-sub').textContent = s.online + ' of ' + s.total + ' online | ' + f.timestamp;
+}
+fetchJSON('/api/access').then(a => {
+    const sel = $('qr-url');
+    sel.innerHTML = a.urls.map(u => '<option>' + esc(u) + '</option>').join('');
+    const show = () => { $('qr-img').src = '/api/qr.svg?url=' + encodeURIComponent(sel.value); };
+    sel.onchange = show;
+    if (!a.urls.length) { $('qr-card').style.display = 'none'; return; }
+    sel.value = (a.current && a.urls.includes(a.current)) ? a.current : a.urls[0];
+    show();
+}).catch(() => {});
+const condChart = makeCondChart($('chCond'));
+const condSel = $('cond-motor');
+function loadCond() {
+    if (!condSel.value) return;
+    fetchJSON('/api/motor/' + encodeURIComponent(condSel.value) + '/condition?minutes=60').then(d => drawCond(condChart, d, $('cond-now'))).catch(() => {});
+}
+condSel.addEventListener('change', () => { localStorage.setItem('portal_motor', condSel.value); loadCond(); });
+setInterval(loadCond, CHART_MS);
+pollFleet(render);
+</script>
+{% endblock %}

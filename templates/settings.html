@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Settings - Motor Safety Portal{% endblock %}
+{% block page_title %}Settings{% endblock %}
+{% block content %}
+<div class="card col-span-6">
+    <div class="card-title">Dashboard Preferences</div>
+    <div class="health-metric-row"><span>Theme</span>
+        <select id="pref-theme" class="val" style="padding:6px 10px; border-radius:8px; border:1px solid #ddd;" onchange="setTheme(this.value)">
+            <option value="light">Light</option><option value="dark">Dark</option>
+        </select>
+    </div>
+    <div class="health-metric-row"><span>Live Monitoring</span><span class="val">Real-time (push updates)</span></div>
+    <div class="calibration-row"><label>Home / Control / Alerts refresh (seconds)</label><input type="number" id="pref-poll" min="1" max="30" step="1"></div>
+    <div class="calibration-row"><label>Charts refresh (seconds)</label><input type="number" id="pref-chart" min="5" max="120" step="1"></div>
+    <button class="save-btn" onclick="savePrefs()">Save Refresh Rates</button>
+    <div class="calibration-status" id="pref-status"></div>
+</div>
+<div class="card col-span-6">
+    <div class="card-title">Motor Names</div>
+    <div id="name-list"><p class="empty">No motors connected yet.</p></div>
+    <p class="empty" style="margin-top:8px">The ID (e.g. motor_1) is set in each ESP32's firmware. The name is only a label on this dashboard.</p>
+</div>
+<div class="card col-span-6">
+    <div class="card-title">Wi-Fi Network</div>
+    <div class="health-metric-row"><span>Wi-Fi</span><span class="val" id="wf-state">--</span></div>
+    <div class="health-metric-row"><span>Wi-Fi IP</span><span class="val" id="wf-ip">--</span></div>
+    <div class="health-metric-row"><span>Ethernet</span><span class="val" id="wf-eth">--</span></div>
+    <div class="btn-row" style="margin:10px 0">
+        <button class="save-btn" id="wf-scan">Scan networks</button>
+        <button class="save-btn" id="wf-add" style="background:#555">+ Add network</button>
+        <button class="save-btn" id="wf-hotspot" style="background:#555">Switch to hotspot</button>
+    </div>
+    <div id="wf-form" style="display:none; margin-bottom:10px">
+        <div class="calibration-row"><label>Network name (SSID)</label><input type="text" id="wf-ssid" maxlength="32" style="width:180px"></div>
+        <div class="calibration-row"><label>Password</label><input type="password" id="wf-pass" placeholder="Blank for open / saved" style="width:180px"></div>
+        <div class="calibration-row"><label>Hidden network</label><input type="checkbox" id="wf-hidden" style="width:auto"></div>
+        <div class="btn-row"><button class="save-btn" id="wf-connect">Connect</button><button class="save-btn" id="wf-cancel" style="background:#555">Cancel</button></div>
+    </div>
+    <ul class="alert-list" id="wf-list"></ul>
+    <div class="card-title" style="margin-top:12px">Saved networks</div>
+    <ul class="alert-list" id="wf-saved"><li class="empty">Loading...</li></ul>
+    <div class="calibration-status" id="wf-msg"></div>
+    <p class="empty" style="margin-top:8px">The Pi reconnects to saved networks automatically. Ethernet keeps working while you change Wi-Fi.</p>
+</div>
+<div class="card col-span-6">
+    <div class="card-title">Prediction Settings</div>
+    <div class="calibration-row"><label>Motor start settling time (seconds)</label><input type="number" id="set-settle" min="0" max="600" step="5"></div>
+    <button class="save-btn" id="set-save">Save</button>
+    <div class="calibration-status" id="set-msg"></div>
+    <p class="empty" style="margin-top:8px">After a motor starts, its readings (vibration especially) can differ for a few seconds. They are still recorded, but they are not used for forecasts or for the condition chart until this time has passed. Samples are labelled STOPPED, SETTLING or RUN in the saved log.</p>
+</div>
+<div class="card col-span-6">
+    <div class="card-title">GitHub Backup</div>
+    <div class="health-metric-row"><span>Repository</span><span class="val" id="gh-remote" style="text-align:right">--</span></div>
+    <div class="health-metric-row"><span>Changes not uploaded</span><span class="val" id="gh-changes">--</span></div>
+    <div class="health-metric-row"><span>Last backup</span><span class="val" id="gh-last">--</span></div>
+    <div class="calibration-row"><label>Password to approve the upload</label><input type="password" id="gh-pass" style="width:180px"></div>
+    <button class="save-btn" id="gh-push">Upload to GitHub</button>
+    <div class="calibration-status" id="gh-msg"></div>
+    <p class="empty" style="margin-top:8px">Nothing is uploaded without this password. The code, the logged data and the ESP32 sketch go to your private repository. The login password file and secret key are never uploaded.</p>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+$('pref-theme').value = localStorage.getItem('greenhouse_theme') || 'light';
+$('pref-poll').value = localStorage.getItem('portal_poll_seconds') || 3;
+$('pref-chart').value = localStorage.getItem('portal_chart_poll_seconds') || 10;
+function savePrefs() {
+    const p = Math.max(1, Math.min(30, parseInt($('pref-poll').value, 10) || 3));
+    const c = Math.max(5, Math.min(120, parseInt($('pref-chart').value, 10) || 10));
+    $('pref-poll').value = p; $('pref-chart').value = c;
+    localStorage.setItem('portal_poll_seconds', p); localStorage.setItem('portal_chart_poll_seconds', c);
+    $('pref-status').textContent = 'Saved - applies the next time a page loads.';
+}
+let built = '';
+function renderNames(f) {
+    const key = f.motors.map(m => m.id).join(',');
+    if (key === built) return;      // don't rebuild while the user is typing
+    built = key;
+    if (!f.motors.length) return;
+    $('name-list').innerHTML = f.motors.map(m => `<div class="calibration-row"><label>${esc(m.id)}</label>
+        <span><input type="text" id="n-${esc(m.id)}" value="${esc(m.name)}" maxlength="40" style="width:150px">
+        <button class="save-btn" data-id="${esc(m.id)}" style="margin-left:6px">Save</button></span></div>`).join('');
+    document.querySelectorAll('#name-list button').forEach(b => b.onclick = () =>
+        postJSON('/api/motor/' + encodeURIComponent(b.dataset.id) + '/rename', {name: $('n-' + b.dataset.id).value})
+            .then(r => { b.textContent = r.name ? 'Saved' : 'Failed'; setTimeout(() => b.textContent = 'Save', 1500); }));
+}
+// ---- Wi-Fi manager ----
+function wfMsg(t) { $('wf-msg').textContent = t; }
+function wfForm(ssid, hidden) {
+    $('wf-form').style.display = '';
+    $('wf-ssid').value = ssid || ''; $('wf-pass').value = ''; $('wf-hidden').checked = !!hidden;
+    (ssid ? $('wf-pass') : $('wf-ssid')).focus();
+}
+function wfConnect(ssid, pass, hidden) {
+    wfMsg('Connecting to ' + ssid + '... (up to 45 s)');
+    postJSON('/api/wifi/connect', {ssid: ssid, password: pass, hidden: hidden}).then(r => {
+        wfMsg(r.ok ? 'Connected to ' + ssid + '.' : (r.error || 'Failed.'));
+        if (r.ok) $('wf-form').style.display = 'none';
+        loadWifi();
+    });
+}
+function loadWifi() {
+    fetchJSON('/api/wifi/status').then(s => {
+        const w = s.wifi || {};
+        $('wf-state').textContent = w.state === 'connected' ? (w.ssid === 'SmartSafetyHotspot' ? 'Hotspot "smartsafety" active' : 'Connected to ' + w.ssid) : (w.state || 'unavailable');
+        $('wf-ip').textContent = s.wifi_ip || '-';
+        $('wf-eth').textContent = s.ethernet ? (s.eth_ip || 'Connected') : 'Not connected';
+        const sv = s.saved || [];
+        $('wf-saved').innerHTML = sv.length ? sv.map(n => '<li><span>' + esc(n) + '</span><button class="save-btn" data-forget="' + esc(n) + '" style="margin-left:auto;background:#e74c3c">Forget</button></li>').join('') : '<li class="empty">None yet</li>';
+        document.querySelectorAll('[data-forget]').forEach(b => b.onclick = () => {
+            if (confirm('Forget ' + b.dataset.forget + '?')) postJSON('/api/wifi/forget', {name: b.dataset.forget}).then(r => { wfMsg(r.ok ? 'Forgotten.' : (r.error || 'Failed.')); loadWifi(); });
+        });
+        if (!s.nm_ok) wfMsg(s.error || 'Wi-Fi control unavailable');
+    }).catch(() => {});
+}
+function wfRender(list) {
+    $('wf-list').innerHTML = list.map(n => '<li><span><b>' + esc(n.ssid) + '</b> &middot; ' + n.signal + '% &middot; ' + esc(n.security) + (n.saved ? ' &middot; saved' : '') + '</span>' +
+        (n.in_use ? '<span class="chip safe" style="margin-left:auto">Connected</span>' : '<button class="save-btn" data-ssid="' + esc(n.ssid) + '" data-open="' + (n.security === 'Open') + '" data-saved="' + n.saved + '" style="margin-left:auto">Connect</button>') + '</li>').join('');
+    document.querySelectorAll('[data-ssid]').forEach(b => b.onclick = () =>
+        (b.dataset.saved === 'true' || b.dataset.open === 'true') ? wfConnect(b.dataset.ssid, '', false) : wfForm(b.dataset.ssid, false));
+}
+$('wf-scan').onclick = () => {
+    wfMsg('Scanning... if you are on the hotspot it drops for about 10 s. Reconnect to it and the results appear here.');
+    postJSON('/api/wifi/scan', {});
+    let tries = 0;
+    const poll = setInterval(() => {
+        if (++tries > 40) { clearInterval(poll); wfMsg('Scan timed out. Try again.'); return; }
+        fetchJSON('/api/wifi/scan').then(r => {
+            if (r.state === 'scanning') return;
+            clearInterval(poll);
+            if (r.state === 'error') { wfMsg(r.error || 'Scan failed.'); return; }
+            wfMsg(r.results.length ? r.results.length + ' networks found.' : 'No other networks found.');
+            wfRender(r.results);
+        }).catch(() => {});
+    }, 3000);
+};
+$('wf-add').onclick = () => wfForm('', false);
+$('wf-cancel').onclick = () => { $('wf-form').style.display = 'none'; };
+$('wf-connect').onclick = () => { const s = $('wf-ssid').value.trim(); if (!s) { wfMsg('Enter a network name.'); return; } wfConnect(s, $('wf-pass').value, $('wf-hidden').checked); };
+$('wf-hotspot').onclick = () => { if (!confirm('Switch the Pi to its own hotspot? This page disconnects unless you are on Ethernet or the hotspot.')) return; wfMsg('Switching to hotspot...'); postJSON('/api/wifi/hotspot', {}).then(r => wfMsg(r.ok ? 'Hotspot active.' : (r.error || 'Failed.'))); };
+// ---- prediction settings ----
+fetchJSON('/api/settings').then(s => { $('set-settle').value = s.settle_seconds; }).catch(() => {});
+$('set-save').onclick = () => postJSON('/api/settings', {settle_seconds: $('set-settle').value}).then(r => { $('set-msg').textContent = r.settle_seconds != null ? 'Saved (' + r.settle_seconds + ' s).' : (r.error || 'Failed.'); });
+// ---- GitHub backup ----
+function loadGh() {
+    fetchJSON('/api/github/status').then(s => {
+        $('gh-remote').textContent = s.configured ? s.remote : 'Not set up';
+        $('gh-changes').textContent = s.configured ? (s.changes == null ? '?' : s.changes + ' file(s)') : '-';
+        $('gh-last').textContent = s.last_push || '-';
+    }).catch(() => {});
+}
+$('gh-push').onclick = () => {
+    const pw = $('gh-pass').value;
+    if (!pw) { $('gh-msg').textContent = 'Enter the password to approve the upload.'; return; }
+    $('gh-msg').textContent = 'Uploading...';
+    postJSON('/api/github/push', {password: pw}).then(r => {
+        $('gh-msg').textContent = r.ok ? 'Uploaded to GitHub.' : (r.error || 'Failed.');
+        $('gh-pass').value = ''; loadGh();
+    });
+};
+loadGh(); setInterval(loadGh, 15000);
+loadWifi(); setInterval(loadWifi, 8000);
+fetchJSON('/api/fleet').then(f => { updateBadges(f); renderNames(f); });
+setInterval(() => fetchJSON('/api/fleet').then(renderNames).catch(() => {}), 5000);
+</script>
+{% endblock %}

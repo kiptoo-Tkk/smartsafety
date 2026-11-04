@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Sign in - Motor Safety Portal</title>
+<style>
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#eef2f7;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1f2937}
+.box{background:#fff;border-radius:16px;padding:32px 28px;width:90%;max-width:340px;box-shadow:0 10px 40px rgba(0,0,0,.12)}
+h1{font-size:20px;margin:0 0 4px;text-align:center}.sub{text-align:center;color:#6b7280;font-size:13px;margin-bottom:22px}
+input[type=password]{width:100%;box-sizing:border-box;padding:12px;border-radius:10px;border:1px solid #cbd5e1;font-size:16px;margin-bottom:12px}
+button{width:100%;padding:12px;border:0;border-radius:10px;background:#2E8B57;color:#fff;font-size:16px;font-weight:600;cursor:pointer}
+.err{color:#c0392b;font-size:14px;margin-bottom:10px;text-align:center}.stay{font-size:13px;color:#4b5563;margin:2px 0 14px;display:flex;gap:8px;align-items:center}
+code{background:#f1f5f9;padding:2px 6px;border-radius:6px;font-size:12px;word-break:break-all}
+</style></head><body><form class="box" method="post" autocomplete="on">
+<h1>MOTOR SAFETY</h1><div class="sub">Sign in to continue</div>
+{% if no_password %}<div class="err">No password has been set yet. On the Raspberry Pi run:<br><code>cd ~/motor-safety/pi &amp;&amp; .venv/bin/python app.py --set-password</code></div>
+{% else %}{% if msg %}<div class="err">{{ msg }}</div>{% endif %}
+<input type="password" name="password" placeholder="Password" autofocus required>
+<label class="stay"><input type="checkbox" name="stay" value="1"> Keep me signed in on this device</label>
+<button type="submit">Sign in</button>{% endif %}
+</form></body></html>

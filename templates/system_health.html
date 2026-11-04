@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}System Health - Motor Safety Portal{% endblock %}
+{% block page_title %}System Health{% endblock %}
+{% block content %}
+<div class="card col-span-12">
+    <div class="card-title">Motor Links (USB serial)</div>
+    <table class="sens-table">
+        <thead><tr><th>Motor</th><th>ESP32 ID</th><th>Port</th><th>Link</th><th>Last data</th><th>ESP32 uptime</th></tr></thead>
+        <tbody id="link-body"><tr><td colspan="6" class="empty">No motors yet.</td></tr></tbody>
+    </table>
+</div>
+<div class="card col-span-4">
+    <div class="card-title">Raspberry Pi: CPU &amp; Memory</div>
+    <div class="health-metric-row"><span>CPU Usage</span><span class="val" id="hlt-cpu">--</span></div>
+    <div class="health-metric-row"><span>RAM Usage</span><span class="val" id="hlt-ram">--</span></div>
+    <div class="health-metric-row"><span>RAM Total</span><span class="val" id="hlt-ram-total">--</span></div>
+</div>
+<div class="card col-span-4">
+    <div class="card-title">Power &amp; Thermal</div>
+    <div class="health-metric-row"><span>Pi Temperature</span><span class="val" id="hlt-temp">--</span></div>
+    <div class="health-metric-row"><span>Under-voltage</span><span class="val" id="hlt-uv">--</span></div>
+    <div class="health-metric-row"><span>Currently Throttled</span><span class="val" id="hlt-throt">--</span></div>
+    <div class="health-metric-row"><span>Under-voltage since boot</span><span class="val" id="hlt-uv-ever">--</span></div>
+</div>
+<div class="card col-span-4">
+    <div class="card-title">Storage &amp; Uptime</div>
+    <div class="health-metric-row"><span>Disk Used</span><span class="val" id="hlt-disk">--</span></div>
+    <div class="health-metric-row"><span>Disk Free</span><span class="val" id="hlt-disk-free">--</span></div>
+    <div class="health-metric-row"><span>System Uptime</span><span class="val" id="hlt-uptime">--</span></div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+const flag = a => a ? '⚠ ACTIVE' : 'Normal';
+function fmtUp(ms) { const s = Math.floor(ms / 1000); return Math.floor(s / 3600) + 'h ' + Math.floor(s % 3600 / 60) + 'm ' + (s % 60) + 's'; }
+function renderLinks(f) {
+    $('link-body').innerHTML = f.motors.length ? f.motors.map(m => `<tr><td>${esc(m.name)}</td><td>${esc(m.id)}</td><td>${esc(m.port || '-')}</td>
+        <td>${chip(m.connected ? 'SAFE' : 'OFFLINE').replace(/>SAFE</, '>Connected<').replace(/>OFFLINE</, '>Offline<')}</td>
+        <td>${m.last_seen_s == null ? '-' : Math.round(m.last_seen_s) + ' s ago'}</td><td>${m.t ? fmtUp(m.t.uptime_ms) : '-'}</td></tr>`).join('')
+        : '<tr><td colspan="6" class="empty">No motors yet. Check the USB cables and hub power.</td></tr>';
+}
+function updateHealth(h) {
+    $('hlt-cpu').textContent = h.cpu_percent + '%';
+    $('hlt-ram').textContent = h.ram.used_percent + '%';
+    $('hlt-ram-total').textContent = h.ram.total_mb + ' MB';
+    $('hlt-temp').textContent = h.temperature_c !== null ? h.temperature_c + '°C' : 'N/A';
+    if (h.throttled) {
+        $('hlt-uv').textContent = flag(h.throttled.under_voltage_now);
+        $('hlt-throt').textContent = flag(h.throttled.throttled_now);
+        $('hlt-uv-ever').textContent = h.throttled.under_voltage_ever ? 'Yes' : 'No';
+    }
+    $('hlt-disk').textContent = h.disk.used_percent + '%';
+    $('hlt-disk-free').textContent = h.disk.free_gb + ' GB';
+    $('hlt-uptime').textContent = h.uptime;
+}
+pollFleet(renderLinks);
+const hp = () => fetchJSON('/api/system_health').then(updateHealth).catch(() => {});
+hp(); setInterval(hp, 5000);
+</script>
+{% endblock %}
